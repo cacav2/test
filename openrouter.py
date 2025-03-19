@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 DEBUG = True
 
 
-class Pipe:
+class Pipeline:
     class Valves(BaseModel):
         """Configuration for OpenRouter and User Credit API."""
         FREE_ONLY: bool = Field(default=False)
