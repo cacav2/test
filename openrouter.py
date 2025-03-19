@@ -5,24 +5,24 @@ import time
 from typing import List, Union, Generator, Dict, Iterator
 from pydantic import BaseModel, Field
 
-DEBUG = True  # Debug modunu aç/kapat
+DEBUG = True
 
 
 class Pipe:
     class Valves(BaseModel):
         """Configuration for OpenRouter and User Credit API."""
-        FREE_ONLY: bool = Field(default=False)  # Free models only toggle
-        USER_CREDIT_CHECK_URL: str = Field(default="")  # Your website's API endpoint for credit check
-        USER_CREDIT_API_KEY: str = Field(default="")  # API key for your credit check API
-        OPENROUTER_API_KEY: str = Field(default="") # Add OpenRouter API Key as a Valve
+        FREE_ONLY: bool = Field(default=False)
+        USER_CREDIT_CHECK_URL: str = Field(default="")
+        USER_CREDIT_API_KEY: str = Field(default="")
+        OPENROUTER_API_KEY: str = Field(default="")
 
     def __init__(self):
         self.type = "manifold"
-        self.id = "openrouter"  #  ID'yi sabit tut, dosya adıyla uyumlu olmalı
+        self.id = "openrouter"
         self.name = "openrouter/"
-        self.OPENROUTER_API_BASE_URL = "https://openrouter.ai/api/v1"  # Hardcoded URL
+        self.OPENROUTER_API_BASE_URL = "https://openrouter.ai/api/v1"
 
-        # Valfleri başlat
+
         self.valves = self.Valves(
             **{
                 "FREE_ONLY": os.getenv("FREE_ONLY", "false").lower() == "true",
@@ -103,12 +103,12 @@ class Pipe:
         """Checks user credit via your website's API."""
         if not self.valves.USER_CREDIT_CHECK_URL:
             self._debug("USER_CREDIT_CHECK_URL not set, skipping credit check.")
-            return 1.0  # Assume enough credit if URL is not set
+            return 1.0
 
         headers = {"Authorization": f"Bearer {self.valves.USER_CREDIT_API_KEY}"}
         try:
             response = requests.get(
-                f"{self.valves.USER_CREDIT_CHECK_URL}/{user_id}",  # User ID in URL
+                f"{self.valves.USER_CREDIT_CHECK_URL}/{user_id}",
                 headers=headers,
             )
             response.raise_for_status()
@@ -141,7 +141,7 @@ class Pipe:
 
         try:
             response = requests.post(
-                f"{self.valves.USER_CREDIT_CHECK_URL}/deduct",  #  deduction endpoint
+                f"{self.valves.USER_CREDIT_CHECK_URL}/deduct",
                 headers=headers,
                 json=payload,
             )
@@ -157,9 +157,9 @@ class Pipe:
     ) -> Union[str, Generator[str, None, None]]:
         """Main pipeline function to handle chat requests."""
         try:
-            model = self._format_model_id(model_id)  # Use model_id from arguments
+            model = self._format_model_id(model_id)
             stream = body.get("stream", False)
-            user_id = body.get("user", "")  #  'user' field for user_id
+            user_id = body.get("user", "")
 
             if not user_id:
                 return "Error: user_id is required"
@@ -214,7 +214,7 @@ class Pipe:
                             if line_data == "[DONE]":
                                 if not self.valves.FREE_ONLY:
                                     self._deduct_credit(user_id, total_cost)
-                                break  # Exit the loop
+                                break
                             event = json.loads(line_data)
                             delta_content = (
                                 event.get("choices", [{}])[0]
@@ -229,14 +229,14 @@ class Pipe:
                             self._debug(f"Failed to decode stream line: {line}")
                             continue
 
-                # Estimate prompt tokens (after the stream, as a best guess)
+
                 if prompt_tokens == 0:
                     prompt_tokens = sum(len(msg.get("content", "").split()) for msg in messages)
                     total_cost += self._get_model_cost(model, prompt_tokens=prompt_tokens)
 
                 total_cost += self._get_model_cost(model, completion_tokens=completion_tokens)
-                completion_tokens = 0  # Reset for the next chunk
-                return # Exit after processing the entire stream
+                completion_tokens = 0
+                return
 
 
             except requests.RequestException as e:
@@ -246,8 +246,8 @@ class Pipe:
                     time.sleep(wait_time)
                  else:
                     self._debug(f"Stream request failed: {e}")
-                    yield f"Error: {str(e)}"  # Yield the error
-                    return  # Stop yielding
+                    yield f"Error: {str(e)}"
+                    return
 
     def get_completion(self, model: str, messages: List[dict], user_id: str, retries: int = 3) -> str:
         """Handles non-streaming (single response) requests."""
@@ -262,7 +262,7 @@ class Pipe:
                 data = self._handle_response(response)
                 completion_content = data["choices"][0]["message"]["content"]
 
-                # Estimate tokens
+
                 prompt_tokens = sum(len(msg.get("content","").split()) for msg in messages)
                 completion_tokens = len(completion_content.split())
 
